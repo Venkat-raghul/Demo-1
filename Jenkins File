@@ -1,0 +1,240 @@
+@Library('platform-engineering-shared@2.2.9') _
+import groovy.json.JsonOutput
+pipeline {
+  agent {
+    label 'nodejs-angularcli-k8s'
+  }
+  
+ options {
+        timeout(time: 180, unit: 'MINUTES')
+        buildDiscarder(logRotator(daysToKeepStr: '5', numToKeepStr: '10'))
+    }
+
+  parameters {
+    choice(name: 'REGION', choices: ['US', 'EU', 'CALATAM', 'APAC'], description: 'Select the valid region')
+    choice(name: 'Destination environment', choices: ['-', 'DEV-SI', 'USUATHF-SI', 'SI2', 'EUSI', 'USUAT', 'UAT2', 'EUUAT', 'EUUAT2', 'EUUATHF', 'USUATHF', 'EUPROD', 'USPROD', 'CAPROD', 'APPROD'], description: 'The destination environment to where the configurations will be migrated.')
+    string(name: 'Release branch', description: 'When the destination environment is different than DEV-SI the release branch needs to be specified.')
+    string(name: '2F Awareness Key', description: 'ONLY REQUIRED when the EUPROD, USPROD, CAPROD or the APPROD destination environment is selected.')
+  }
+  
+  stages {
+    
+    stage('Validate migration parameters') {
+      steps {
+        cleanWs()
+        script {          
+          env.GIT_BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "");
+          env.DESTINATION_ENVIRONMENT = params['Destination environment'];
+          env.TWO_FACTOR_AWARENESS_KEY = params['2F Awareness Key'];
+          env.REGION = params['REGION'];
+          sh 'printenv'
+          if (env.DESTINATION_ENVIRONMENT == '-') {
+            sh 'exit 1'
+          } else {
+            if (env.DESTINATION_ENVIRONMENT == 'EUPROD' || env.DESTINATION_ENVIRONMENT == 'USPROD' || env.DESTINATION_ENVIRONMENT == 'CAPROD' || env.DESTINATION_ENVIRONMENT == 'APPROD') {
+              if (env.TWO_FACTOR_AWARENESS_KEY != '+H_Dk|v9FiC.^#b)uM-8SY72^kThkl') {
+                echoErrorMessage()
+                echo "ERROR: Incorrect 2F Awareness Key."
+                sh 'exit 1'
+              }
+
+              env.DSA_USERNAME_CREDENTIAL_ID = 'DISCOVER-SERVICE-ACCOUNT-PROD-USERNAME'
+              env.DSA_CLIENT_SECRET_CREDENTIAL_ID = 'DISCOVER-SERVICE-ACCOUNT-PROD-CLIENT-SECRET'
+              env.DSA_CLIENT_ID_CREDENTIAL_ID = 'DISCOVER-SERVICE-ACCOUNT-PROD-CLIENT-ID'
+            } else {
+              if (env.TWO_FACTOR_AWARENESS_KEY == '+H_Dk|v9FiC.^#b)uM-8SY72^kThkl') {
+                echoErrorMessage()
+                echo "ERROR: 2F Awareness Key is only allowed for PROD."
+                sh 'exit 1'
+              }
+
+              env.DSA_USERNAME_CREDENTIAL_ID = 'DISCOVER-SERVICE-ACCOUNT-NON-PROD-USERNAME'
+              env.DSA_CLIENT_SECRET_CREDENTIAL_ID = 'DISCOVER-SERVICE-ACCOUNT-NON-PROD-CLIENT-SECRET'
+              env.DSA_CLIENT_ID_CREDENTIAL_ID = 'DISCOVER-SERVICE-ACCOUNT-NON-PROD-CLIENT-ID'
+            }
+
+            if (env.DESTINATION_ENVIRONMENT == 'DEV-SI') {
+              env.MIGRATION_BRANCH = 'master';
+            } else {
+              if (params['Release branch'] != '') {
+                env.MIGRATION_BRANCH = params['Release branch'];
+              } else {
+                echoErrorMessage()
+                echo "ERROR: When the destination environment is different than DEV-SI the release branch needs to be specified."
+                sh 'exit 1'
+              }
+            }
+          }
+        }
+      }
+    }
+        
+   stage('Checkout omnishopper-ui repository') {
+      steps {
+        // Call git to clone the repo
+        dir('omnishopper') {
+          script {
+            try {
+              git url: 'https://github.com/niq-enterprise/disc-fe-omnishopper-ui.git',
+                credentialsId: 'RBOC-GITHUB-ACCOUNT',
+                branch: env.MIGRATION_BRANCH
+            } catch (Exception e) {
+              echo "ERROR: The ${env.MIGRATION_BRANCH} branch specified doesn't exists, but the Asset configurations will be pulled from the 'main' branch for this repository."
+              git url: 'https://github.com/niq-enterprise/disc-fe-omnishopper-ui.git',
+                credentialsId: 'RBOC-GITHUB-ACCOUNT',
+                branch: "main"
+            }
+          }
+        }
+      }
+    }  
+    
+  
+   stage('Checkout core-analytics repository') {
+      steps {
+        // Call git to clone the repo
+        dir('core-analytics') {
+          script {
+            try {
+              git url: 'https://github.com/niq-enterprise/disc-fe-crf-core-analytics.git',
+                credentialsId: 'RBOC-GITHUB-ACCOUNT',
+                branch: env.MIGRATION_BRANCH
+            } catch (Exception e) {
+              echo "ERROR: The ${env.MIGRATION_BRANCH} branch specified doesn't exists, but the Asset configurations will be pulled from the 'main' branch for this repository."
+              git url: 'https://github.com/niq-enterprise/disc-fe-crf-core-analytics.git',
+                credentialsId: 'RBOC-GITHUB-ACCOUNT',
+                branch: "main"
+            }
+          }
+        }
+      }
+    }
+  
+    
+    stage('Merging Asset configurations') {
+      steps {
+        script {
+          sh 'apt-get update && apt-get install jq -y'
+          sh(script: "jq -s 'flatten' */AssetCatalog_Configs/*/*json  > merged-asset-configurations.json")
+        }
+      }
+    }
+    stage('Checkout crf-asset-catalog-management repository') {
+      steps {
+        // Call git to clone the repo
+        dir('crf-asset-catalog-management') {
+            timeout(time: 60, unit: 'MINUTES') {
+              script {
+                withCredentials([usernamePassword(credentialsId: 'RBOC-GITHUB-ACCOUNT', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                def encodedPassword = URLEncoder.encode("$GIT_PASSWORD",'UTF-8')
+            gitUtils.checkoutSCM('https://github.com/niq-enterprise/disc-fe-crf-asset-catalog-management.git', 'main', 'RBOC-GITHUB-ACCOUNT')
+            sh "git checkout main"
+             //     sh "ls -ltr"
+        //  git url: 'https://adlm.nielseniq.com/bitbucket/scm/crf/crf-asset-catalog-management.git',
+        //  credentialsId: 'RBOC-SERVICE-ACCOUNT',
+        //  branch: "master"
+           }
+          }
+        }
+      }
+    }
+  }
+    stage('Creating release configurations') {
+      steps {
+        script {
+          /*sh "pwd"
+          sh "ls -ltr"*/
+          sh "mkdir -p ${env.WORKSPACE}/crf-asset-catalog-management/asset-release/${env.MIGRATION_BRANCH}"
+          sh "cp merged-asset-configurations.json ${env.WORKSPACE}/crf-asset-catalog-management/asset-release/${env.MIGRATION_BRANCH}/configurations.json"
+
+        }
+      }
+    }
+    stage('Validating release configurations') {
+      steps {
+        dir('crf-asset-catalog-management') {
+          script {
+            try {
+              def configurations = JsonOutput.toJson("${env.WORKSPACE}/crf-asset-catalog-management/asset-release/${env.MIGRATION_BRANCH}/configurations.json");
+              JsonOutput.prettyPrint(configurations);
+            } catch (ignored) {
+              echo "INVALID Json"
+              println ignored.toString()
+              sh 'exit 1'
+            }
+          }
+        }
+      }
+    }
+    stage('Commit release configurations') {
+      steps {
+        dir('crf-asset-catalog-management/asset-release/' + env.MIGRATION_BRANCH) {
+          withCredentials([usernamePassword(credentialsId: 'RBOC-GITHUB-ACCOUNT', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+            script {
+              sh "git add *"
+              sh "git config user.email jenkins2@nielseniq.com"
+              sh "git config user.name jenkins2"
+              sh "git config --global http.postBuffer 157286400"
+              sh "git pull https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/niq-enterprise/disc-fe-crf-asset-catalog-management.git ${env.GIT_BRANCH_NAME}"
+              sh "git commit --allow-empty -m 'Build #${env.BUILD_NUMBER} - ${env.DESTINATION_ENVIRONMENT} ${env.MIGRATION_BRANCH} release configurations updated.'"              
+              sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/niq-enterprise/disc-fe-crf-asset-catalog-management.git ${env.GIT_BRANCH_NAME}"
+            }
+          }
+        }
+      }
+    }
+    stage('Migrate Assets') {
+      steps {
+        dir('crf-asset-catalog-management') {
+          withCredentials([string(credentialsId: "${env.DSA_USERNAME_CREDENTIAL_ID}", variable: 'DSA_USERNAME'),
+            string(credentialsId: "${env.DSA_CLIENT_SECRET_CREDENTIAL_ID}", variable: 'DSA_CLIENT_SECRET'),
+            string(credentialsId: "${env.DSA_CLIENT_ID_CREDENTIAL_ID}", variable: 'DSA_CLIENT_ID')
+          ]) {
+            script {
+              //  sh "apt-get install -y npm"
+                sh "npm install"
+              sh "npm run migrate-assets -- ${env.DESTINATION_ENVIRONMENT} ${env.MIGRATION_BRANCH} ${DSA_USERNAME} ${DSA_CLIENT_ID} ${DSA_CLIENT_SECRET} ${env.REGION}"
+            }
+          }
+        }
+      }
+    }
+
+    stage('Push execution files') {
+      steps {
+        dir('crf-asset-catalog-management') {
+          withCredentials([usernamePassword(credentialsId: 'RBOC-GITHUB-ACCOUNT', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+            script {
+              sh "ls -ltr"
+              sh "git status"
+              sh "git add -A"
+              sh "git stash"
+              sh "git pull https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/niq-enterprise/disc-fe-crf-asset-catalog-management.git ${env.GIT_BRANCH_NAME}"
+              def stashList = sh(script: 'git stash list', returnStdout: true).trim()
+              if (stashList) {
+                   sh 'git stash apply'
+                   } else {
+                   echo 'No stashed changes found. Skipping "git stash apply".'
+                }
+              sh "git add ."
+              sh "git config user.email jenkins2@nielseniq.com"
+              sh "git config user.name jenkins2"
+              sh "git config --global http.postBuffer 157286400"
+              sh "git commit --allow-empty -m 'Build #${env.BUILD_NUMBER} - ${env.DESTINATION_ENVIRONMENT} ${env.MIGRATION_BRANCH} assets migration completed.'"
+              sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/niq-enterprise/disc-fe-crf-asset-catalog-management.git ${env.GIT_BRANCH_NAME}"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+def echoErrorMessage() {
+  echo "  ______                     "
+  echo " |  ____|                    "
+  echo " | |__   _ __ _ __ ___  _ __ "
+  echo " |  __| | '__| '__/ _  | '__|"
+  echo " | |____| |  | | | (_) | |   "
+  echo " |______|_|  |_|   ___/|_|   "
+}
