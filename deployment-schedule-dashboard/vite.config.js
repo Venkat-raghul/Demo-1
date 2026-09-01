@@ -1,8 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Served from https://<org>.github.io/disc-fe-discover-devops-utlilities/
+// Served from https://venkat-raghul.github.io/Demo-1/
 export default defineConfig({
   plugins: [react()],
-  base: process.env.PAGES_BASE ?? "/disc-fe-discover-devops-utlilities/"
+  base: process.env.PAGES_BASE ?? "/Demo-1/"
 });
