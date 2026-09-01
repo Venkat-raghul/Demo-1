@@ -1,0 +1,9 @@
+{
+  "default": "september-i-2026",
+  "releases": [
+    { "id": "august-i-2026", "name": "AUGUST I 2026", "file": "august-i-2026.json" },
+    { "id": "august-ii-2026", "name": "AUGUST II 2026", "file": "august-ii-2026.json" },
+    { "id": "september-i-2026", "name": "SEPTEMBER I 2026", "file": "september-i-2026.json" },
+    { "id": "september-ii-2026", "name": "SEPTEMBER II 2026", "file": "september-ii-2026.json" }
+  ]
+}

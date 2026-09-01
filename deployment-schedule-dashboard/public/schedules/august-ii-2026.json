@@ -1,0 +1,51 @@
+{
+  "name": "AUGUST II 2026",
+  "prod_release_dates": ["2026-08-21", "2026-08-22"],
+  "cycle_date_range": { "start": "2026-08-03", "end": "2026-08-12" },
+  "release_cycles": {
+    "Discover": [
+      { "cycle": 1, "date": "2026-08-03", "time_IST": "12:00" },
+      { "cycle": 2, "date": "2026-08-06", "time_IST": "12:00" },
+      { "cycle": 3, "date": "2026-08-10", "time_IST": "12:00" },
+      { "cycle": 4, "date": "2026-08-12", "time_IST": "12:00" }
+    ],
+    "NSS": [
+      { "cycle": 1, "date": "2026-08-07", "time_IST": "09:00" },
+      { "cycle": 2, "date": "2026-08-12", "time_IST": "09:00" }
+    ],
+    "NES": [
+      { "cycle": 1, "date": "2026-08-10", "time_IST": "12:00" },
+      { "cycle": 2, "date": "2026-08-12", "time_IST": "12:00" },
+      { "cycle": 3, "date": "2026-08-14", "time_IST": "12:00" },
+      { "cycle": 4, "date": "2026-08-18", "time_IST": "12:00" }
+    ],
+    "DDM": [
+      { "cycle": 1, "date": "2026-08-10", "time_IST": "12:00" },
+      { "cycle": 2, "date": "2026-08-12", "time_IST": "12:00" },
+      { "cycle": 3, "date": "2026-08-14", "time_IST": "12:00" },
+      { "cycle": 4, "date": "2026-08-18", "time_IST": "12:00" }
+    ],
+    "Walmart OVT": [
+      { "cycle": 1, "date": "2026-08-10", "time_IST": "17:00" },
+      { "cycle": 2, "date": "2026-08-12", "time_IST": "17:00" },
+      { "cycle": 3, "date": "2026-08-14", "time_IST": "17:00" },
+      { "cycle": 4, "date": "2026-08-18", "time_IST": "17:00" }
+    ],
+    "RTM": [
+      { "cycle": 1, "date": "2026-08-11", "time_IST": "12:00" },
+      { "cycle": 2, "date": "2026-08-13", "time_IST": "12:00" },
+      { "cycle": 3, "date": "2026-08-17", "time_IST": "12:00" },
+      { "cycle": 4, "date": "2026-08-19", "time_IST": "12:00" }
+    ],
+    "Shelf Architect": [
+      { "cycle": 1, "date": "2026-08-10", "time_IST": "17:00" },
+      { "cycle": 2, "date": "2026-08-12", "time_IST": "17:00" },
+      { "cycle": 3, "date": "2026-08-14", "time_IST": "17:00" },
+      { "cycle": 4, "date": "2026-08-18", "time_IST": "17:00" }
+    ],
+    "Enriched Events": [
+      { "cycle": 1, "date": "2026-08-10", "time_IST": "17:00" },
+      { "cycle": 2, "date": "2026-08-17", "time_IST": "17:00" }
+    ]
+  }
+}
